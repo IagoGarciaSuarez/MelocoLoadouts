@@ -1,75 +1,105 @@
 -- Profiles.lua
 
-function Melocoloadouts:SaveProfile(profileName)
-    if not profileName or profileName == "" then
-        print("|cffff4444Melocoloadouts: Invalid profile name.|r")
+local UNKNOWN_VALUE = "Unknown"
+
+-- Detects old flat saved-profile records during database migration.
+local function IsProfileRecord(value)
+    return type(value) == "table"
+        and (
+            type(value.name) == "string"
+            or type(value.specIndex) == "number"
+            or type(value.specID) == "number"
+            or type(value.equipmentSetID) == "number"
+            or type(value.talentLoadoutID) == "number"
+            or type(value.uiLayoutID) == "number"
+        )
+end
+
+-- Builds the stable saved-variable key for the active character.
+function MelocoLoadouts:GetCurrentCharacterKey()
+    local name, realm = UnitFullName("player")
+
+    name = name or UnitName("player") or UNKNOWN_VALUE
+    realm = realm or GetRealmName() or UNKNOWN_VALUE
+
+    return name .. "-" .. realm
+end
+
+-- Builds a readable label for the active character.
+function MelocoLoadouts:GetCurrentCharacterDisplayName()
+    local name, realm = UnitFullName("player")
+
+    name = name or UnitName("player") or UNKNOWN_VALUE
+    realm = realm or GetRealmName() or UNKNOWN_VALUE
+
+    return name .. " - " .. realm
+end
+
+-- Moves legacy flat profiles into the current character bucket.
+function MelocoLoadouts:MigrateProfilesToCharacterStore()
+    MelocoLoadoutsDB = MelocoLoadoutsDB or {}
+    MelocoLoadoutsDB.profiles = MelocoLoadoutsDB.profiles or {}
+
+    local currentCharacterKey = self:GetCurrentCharacterKey()
+    local currentCharacterName = self:GetCurrentCharacterDisplayName()
+    local legacyProfiles = {}
+    local foundLegacyProfile = false
+
+    for profileName, profile in pairs(MelocoLoadoutsDB.profiles) do
+        if IsProfileRecord(profile) then
+            foundLegacyProfile = true
+            profile.characterKey = profile.characterKey or currentCharacterKey
+            profile.characterName = profile.characterName or currentCharacterName
+            legacyProfiles[profileName] = profile
+        end
+    end
+
+    if not foundLegacyProfile then
         return
     end
 
-    MelocoloadoutsDB.profiles = MelocoloadoutsDB.profiles or {}
+    local characterStores = {}
 
-    local currentSpecIndex = GetSpecialization()
-    local currentSpecID = nil
-    local currentSpecName = nil
-
-    if currentSpecIndex then
-        currentSpecID, currentSpecName = GetSpecializationInfo(currentSpecIndex)
+    for key, value in pairs(MelocoLoadoutsDB.profiles) do
+        if not IsProfileRecord(value) then
+            characterStores[key] = value
+        end
     end
 
-    local equipmentSetID, equipmentSetName = nil, nil
-    if self.GetCurrentEquipmentSet then
-        equipmentSetID, equipmentSetName = self:GetCurrentEquipmentSet()
+    characterStores[currentCharacterKey] = characterStores[currentCharacterKey] or {}
+
+    for profileName, profile in pairs(legacyProfiles) do
+        characterStores[currentCharacterKey][profileName] = profile
     end
 
-    local talentLoadoutID, talentLoadoutName = nil, nil
-    if self.GetCurrentTalentLoadout then
-        talentLoadoutID, talentLoadoutName = self:GetCurrentTalentLoadout()
-    end
-
-    local uiLayoutID = nil
-    if self.GetCurrentUILayout then
-        uiLayoutID = self:GetCurrentUILayout()
-    end
-
-    local profile = {
-        name = profileName,
-
-        specIndex = currentSpecIndex,
-        specID = currentSpecID,
-        specName = currentSpecName,
-
-        equipmentSetID = equipmentSetID,
-        equipmentSetName = equipmentSetName,
-
-        talentLoadoutID = talentLoadoutID,
-        talentLoadoutName = talentLoadoutName,
-
-        uiLayoutID = uiLayoutID,
-    }
-
-    MelocoloadoutsDB.profiles[profileName] = profile
-
-    print("|cff00ff00Melocoloadouts: Profile saved:|r " .. profileName)
+    MelocoLoadoutsDB.profiles = characterStores
 end
 
-function Melocoloadouts:GetProfile(profileName)
-    if not MelocoloadoutsDB or not MelocoloadoutsDB.profiles then
-        return nil
-    end
+-- Returns the profile table scoped to the active character.
+function MelocoLoadouts:GetCurrentCharacterProfileStore()
+    self:MigrateProfilesToCharacterStore()
 
-    return MelocoloadoutsDB.profiles[profileName]
+    local characterKey = self:GetCurrentCharacterKey()
+    MelocoLoadoutsDB.profiles[characterKey] = MelocoLoadoutsDB.profiles[characterKey] or {}
+
+    return MelocoLoadoutsDB.profiles[characterKey]
 end
 
-function Melocoloadouts:DeleteProfile(profileName)
-    if not MelocoloadoutsDB or not MelocoloadoutsDB.profiles then
-        return
+-- Returns sorted profile names for stable UI rendering.
+function MelocoLoadouts:GetCurrentCharacterProfileNames()
+    local profileStore = self:GetCurrentCharacterProfileStore()
+    local profileNames = {}
+
+    for profileName in pairs(profileStore) do
+        table.insert(profileNames, profileName)
     end
 
-    MelocoloadoutsDB.profiles[profileName] = nil
-    print("|cffffaa00Melocoloadouts: Profile deleted:|r " .. profileName)
+    table.sort(profileNames)
+    return profileNames
 end
 
-function Melocoloadouts:GetCurrentProfileSnapshot()
+-- Captures the current spec, talent, equipment, and UI state.
+function MelocoLoadouts:GetCurrentProfileSnapshot()
     local currentSpecIndex = GetSpecialization()
     local currentSpecID, currentSpecName = nil, nil
 
@@ -104,7 +134,44 @@ function Melocoloadouts:GetCurrentProfileSnapshot()
     }
 end
 
-function Melocoloadouts:IsProfileActive(profile)
+-- Saves or replaces a profile for the active character.
+function MelocoLoadouts:SaveProfile(profileName)
+    if not profileName or profileName == "" then
+        print("|cffff4444MelocoLoadouts: Invalid profile name.|r")
+        return
+    end
+
+    local profileStore = self:GetCurrentCharacterProfileStore()
+    local snapshot = self:GetCurrentProfileSnapshot()
+
+    snapshot.name = profileName
+    snapshot.characterKey = self:GetCurrentCharacterKey()
+    snapshot.characterName = self:GetCurrentCharacterDisplayName()
+
+    profileStore[profileName] = snapshot
+
+    print("|cff00ff00MelocoLoadouts: Profile saved:|r " .. profileName)
+end
+
+-- Finds a profile by name for the active character.
+function MelocoLoadouts:GetProfile(profileName)
+    local profileStore = self:GetCurrentCharacterProfileStore()
+
+    return profileStore[profileName]
+end
+
+-- Deletes a profile from the active character.
+function MelocoLoadouts:DeleteProfile(profileName)
+    local profileStore = self:GetCurrentCharacterProfileStore()
+
+    if profileStore[profileName] then
+        profileStore[profileName] = nil
+        print("|cffffaa00MelocoLoadouts: Profile deleted:|r " .. profileName)
+    end
+end
+
+-- Compares a saved profile with the current in-game state.
+function MelocoLoadouts:IsProfileActive(profile)
     if not profile then
         return false
     end

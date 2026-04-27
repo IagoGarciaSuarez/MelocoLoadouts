@@ -1,6 +1,7 @@
 -- Equipment.lua
 
-function Melocoloadouts:GetCurrentEquipmentSet()
+-- Returns the equipped equipment set ID and name, when one is active.
+function MelocoLoadouts:GetCurrentEquipmentSet()
     if not C_EquipmentSet or not C_EquipmentSet.GetEquipmentSetIDs then
         return nil, nil
     end
@@ -12,7 +13,7 @@ function Melocoloadouts:GetCurrentEquipmentSet()
     end
 
     for _, setID in ipairs(equipmentSetIDs) do
-        local name, iconFileID, setIDFromInfo, isEquipped = C_EquipmentSet.GetEquipmentSetInfo(setID)
+        local name, _, _, isEquipped = C_EquipmentSet.GetEquipmentSetInfo(setID)
 
         if isEquipped then
             return setID, name
@@ -22,15 +23,16 @@ function Melocoloadouts:GetCurrentEquipmentSet()
     return nil, nil
 end
 
-function Melocoloadouts:ApplyEquipmentSet(setID)
+-- Equips a saved equipment set by ID.
+function MelocoLoadouts:ApplyEquipmentSet(setID)
     if not setID then
         return false
     end
 
-    if C_EquipmentSet and C_EquipmentSet.UseEquipmentSet then
-        C_EquipmentSet.UseEquipmentSet(setID)
-        return true
+    if not C_EquipmentSet or not C_EquipmentSet.UseEquipmentSet then
+        return false
     end
 
-    return false
+    C_EquipmentSet.UseEquipmentSet(setID)
+    return true
 end

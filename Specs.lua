@@ -1,14 +1,17 @@
 -- Specs.lua
 
-function Melocoloadouts:GetCurrentSpecialization()
+-- Returns the current specialization index reported by WoW.
+function MelocoLoadouts:GetCurrentSpecialization()
     return GetSpecialization()
 end
 
-function Melocoloadouts:IsCurrentSpecialization(specIndex)
-    return specIndex and GetSpecialization() == specIndex
+-- Checks whether the requested specialization index is already active.
+function MelocoLoadouts:IsCurrentSpecialization(specIndex)
+    return specIndex and self:GetCurrentSpecialization() == specIndex
 end
 
-function Melocoloadouts:ApplySpecialization(specIndex)
+-- Switches specialization when the current WoW API allows it.
+function MelocoLoadouts:ApplySpecialization(specIndex)
     if not specIndex then
         return false
     end
@@ -27,6 +30,6 @@ function Melocoloadouts:ApplySpecialization(specIndex)
         return true
     end
 
-    print("|cffffaa00Melocoloadouts: Specialization switching is not available through the current API.|r")
+    print("|cffffaa00MelocoLoadouts: Specialization switching is not available through the current API.|r")
     return false
 end

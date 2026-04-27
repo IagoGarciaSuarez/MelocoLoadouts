@@ -1,9 +1,10 @@
 ## Interface: 120005
-## Title: Melocoloadouts
+## Title: MelocoLoadouts
 ## Notes: Loadout manager
 ## Author: Melocotronco
-## Version: 0.1.0
-## SavedVariables: MelocoloadoutsDB
+## Version: 0.2.0
+## IconTexture: Interface\AddOns\MelocoLoadouts\Media\Icon
+## SavedVariables: MelocoLoadoutsDB
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
