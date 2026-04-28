@@ -85,6 +85,31 @@ function MelocoLoadouts:GetCurrentCharacterProfileStore()
     return MelocoLoadoutsDB.profiles[characterKey]
 end
 
+-- Returns the collapsed spec state table scoped to the active character.
+function MelocoLoadouts:GetCurrentCharacterCollapsedSpecStore()
+    MelocoLoadoutsDB = MelocoLoadoutsDB or {}
+    MelocoLoadoutsDB.collapsedSpecs = MelocoLoadoutsDB.collapsedSpecs or {}
+
+    local characterKey = self:GetCurrentCharacterKey()
+    MelocoLoadoutsDB.collapsedSpecs[characterKey] = MelocoLoadoutsDB.collapsedSpecs[characterKey] or {}
+
+    return MelocoLoadoutsDB.collapsedSpecs[characterKey]
+end
+
+-- Checks whether a specialization group is collapsed for the active character.
+function MelocoLoadouts:IsSpecGroupCollapsed(specKey)
+    local collapsedSpecs = self:GetCurrentCharacterCollapsedSpecStore()
+
+    return collapsedSpecs[specKey] == true
+end
+
+-- Toggles the collapsed state for a specialization group.
+function MelocoLoadouts:ToggleSpecGroupCollapsed(specKey)
+    local collapsedSpecs = self:GetCurrentCharacterCollapsedSpecStore()
+
+    collapsedSpecs[specKey] = not collapsedSpecs[specKey]
+end
+
 -- Returns sorted profile names for stable UI rendering.
 function MelocoLoadouts:GetCurrentCharacterProfileNames()
     local profileStore = self:GetCurrentCharacterProfileStore()
@@ -96,6 +121,47 @@ function MelocoLoadouts:GetCurrentCharacterProfileNames()
 
     table.sort(profileNames)
     return profileNames
+end
+
+-- Returns profiles grouped and sorted by specialization for the profile list UI.
+function MelocoLoadouts:GetCurrentCharacterProfileGroups()
+    local profileStore = self:GetCurrentCharacterProfileStore()
+    local groupsBySpec = {}
+    local groups = {}
+
+    for profileName, profile in pairs(profileStore) do
+        local specName = profile.specName or "Unknown spec"
+        local specKey = tostring(profile.specID or profile.specIndex or specName)
+        local group = groupsBySpec[specKey]
+
+        if not group then
+            group = {
+                specKey = specKey,
+                specName = specName,
+                sortKey = specName .. "-" .. specKey,
+                profiles = {},
+            }
+            groupsBySpec[specKey] = group
+            table.insert(groups, group)
+        end
+
+        table.insert(group.profiles, {
+            name = profileName,
+            profile = profile,
+        })
+    end
+
+    table.sort(groups, function(left, right)
+        return left.sortKey < right.sortKey
+    end)
+
+    for _, group in ipairs(groups) do
+        table.sort(group.profiles, function(left, right)
+            return left.name < right.name
+        end)
+    end
+
+    return groups
 end
 
 -- Captures the current spec, talent, equipment, and UI state.

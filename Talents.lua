@@ -95,13 +95,13 @@ end
 -- Loads a talent profile, preferring the saved name and falling back to ID.
 function MelocoLoadouts:ApplyTalentLoadout(loadoutID, loadoutName)
     if not C_ClassTalents or not C_ClassTalents.LoadConfig then
-        return false
+        return false, "notReady"
     end
 
     local currentSpecID = self:GetCurrentSpecializationID()
 
     if not currentSpecID then
-        return false
+        return false, "notReady"
     end
 
     local configID = self:FindTalentLoadoutByName(loadoutName, currentSpecID)
@@ -112,25 +112,24 @@ function MelocoLoadouts:ApplyTalentLoadout(loadoutID, loadoutName)
 
     if not configID then
         print("|cffff4444MelocoLoadouts: Talent loadout not found:|r " .. tostring(loadoutName or loadoutID))
-        return false
+        return false, "notFound"
     end
 
     local result = C_ClassTalents.LoadConfig(configID, true)
 
     if Enum and Enum.LoadConfigResult and result == Enum.LoadConfigResult.Error then
-        print("|cffff4444MelocoLoadouts: LoadConfig returned Error.|r")
-        return false
+        return false, "error"
     end
 
     self:SetSelectedTalentLoadout(currentSpecID, configID)
 
     if Enum and Enum.LoadConfigResult and result == Enum.LoadConfigResult.LoadInProgress then
         print("|cffffaa00MelocoLoadouts: Talent loadout change in progress...|r")
-        return true
+        return true, "inProgress"
     end
 
     print("|cff00ff00MelocoLoadouts: Talent loadout selected:|r " .. tostring(loadoutName or configID))
-    return true
+    return true, "applied"
 end
 
 -- Prints talent loadouts for manual debugging in-game.

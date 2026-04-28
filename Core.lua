@@ -35,6 +35,7 @@ local minimapIcon = LDB:NewDataObject(ADDON_DISPLAY_NAME, {
 function addon:InitializeDatabase()
     MelocoLoadoutsDB = MelocoLoadoutsDB or {}
     MelocoLoadoutsDB.profiles = MelocoLoadoutsDB.profiles or {}
+    MelocoLoadoutsDB.collapsedSpecs = MelocoLoadoutsDB.collapsedSpecs or {}
     MelocoLoadoutsDB.minimap = MelocoLoadoutsDB.minimap or {}
 
     if self.MigrateProfilesToCharacterStore then
@@ -69,6 +70,24 @@ function addon:OnEvent(event, arg1)
 
             self:WaitForTalentLoadoutThenApply(profile, 0)
         end
+        return
+    end
+
+    if event == "TRAIT_CONFIG_UPDATED" then
+        if self.pendingPostTalentProfile then
+            local profile = self.pendingPostTalentProfile
+            self.pendingPostTalentProfile = nil
+
+            self:ApplyProfileEquipmentAndFinalUI(profile)
+        end
+        return
+    end
+
+    if event == "CONFIG_COMMIT_FAILED" then
+        if self.pendingPostTalentProfile then
+            self.pendingPostTalentProfile = nil
+            print("|cffff4444" .. ADDON_DISPLAY_NAME .. ": Profile cancelled. Talent loadout commit failed.|r")
+        end
     end
 end
 
@@ -101,6 +120,7 @@ function addon:ApplyProfile(profileName)
     end
 
     self.pendingProfile = nil
+    self.pendingPostTalentProfile = nil
 
     if profile.uiLayoutID then
         local uiApplied = self:ApplyUILayout(profile.uiLayoutID)
@@ -129,8 +149,8 @@ function addon:ApplyProfile(profileName)
     self:ApplyProfileAfterSpec(profile)
 end
 
--- Applies talent and equipment choices after the target specialization is active.
-function addon:ApplyProfileAfterSpec(profile)
+-- Applies the talent loadout once the target specialization is active.
+function addon:ApplyProfileAfterSpec(profile, attempts)
     if not profile then
         return
     end
@@ -139,13 +159,46 @@ function addon:ApplyProfileAfterSpec(profile)
         return
     end
 
+    attempts = attempts or 0
+
     if profile.talentLoadoutID or profile.talentLoadoutName then
-        local talentsApplied = self:ApplyTalentLoadout(profile.talentLoadoutID, profile.talentLoadoutName)
+        local talentsApplied, talentStatus = self:ApplyTalentLoadout(profile.talentLoadoutID, profile.talentLoadoutName)
 
         if talentsApplied == false then
+            if attempts < 20 and talentStatus ~= "notFound" then
+                C_Timer.After(0.25, function()
+                    addon:ApplyProfileAfterSpec(profile, attempts + 1)
+                end)
+                return
+            end
+
             print("|cffff4444" .. ADDON_DISPLAY_NAME .. ": Profile cancelled. Talent loadout could not be applied.|r")
             return
         end
+
+        if talentStatus == "inProgress" then
+            self.pendingPostTalentProfile = profile
+            C_Timer.After(8, function()
+                if addon.pendingPostTalentProfile == profile then
+                    addon.pendingPostTalentProfile = nil
+                    addon:ApplyProfileEquipmentAndFinalUI(profile)
+                end
+            end)
+            return
+        end
+    end
+
+    self:ApplyProfileEquipmentAndFinalUI(profile)
+end
+
+-- Applies the final profile steps after talents are already settled.
+function addon:ApplyProfileEquipmentAndFinalUI(profile)
+    if not profile then
+        return
+    end
+
+    if not self:CanApply() then
+        return
     end
 
     if profile.equipmentSetID then
@@ -203,6 +256,8 @@ end
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+eventFrame:RegisterEvent("CONFIG_COMMIT_FAILED")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
     addon:OnEvent(event, arg1)

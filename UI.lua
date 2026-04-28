@@ -6,12 +6,18 @@ local LIST_WIDTH = 380
 local LIST_HEIGHT = 350
 local ROW_HEIGHT = 70
 local ROW_SPACING = 72
+local GROUP_HEADER_HEIGHT = 24
+local GROUP_SPACING = 10
 
 -- Removes all dynamic child frames from a container before rebuilding it.
 local function ClearChildren(frame)
     for _, child in ipairs({ frame:GetChildren() }) do
         child:Hide()
         child:SetParent(nil)
+    end
+
+    for _, region in ipairs({ frame:GetRegions() }) do
+        region:Hide()
     end
 end
 
@@ -98,11 +104,51 @@ function MelocoLoadouts:ShowDeleteProfilePopup(profileName)
     StaticPopup_Show("MELOCO_CONFIRM_DELETE")
 end
 
+-- Creates a clickable header for a specialization profile group.
+function MelocoLoadouts:CreateSpecGroupHeader(parent, group, yOffset)
+    local header = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    header:SetSize(LIST_WIDTH, GROUP_HEADER_HEIGHT)
+    header:SetPoint("TOP", 0, -yOffset)
+
+    header:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+    })
+    header:SetBackdropColor(0.12, 0.12, 0.16, 0.9)
+
+    local isCollapsed = self:IsSpecGroupCollapsed(group.specKey)
+    local indicatorText = isCollapsed and "+" or "-"
+
+    local indicator = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    indicator:SetPoint("LEFT", 8, 0)
+    indicator:SetWidth(14)
+    indicator:SetJustifyH("CENTER")
+    indicator:SetText(indicatorText)
+
+    local title = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    title:SetPoint("LEFT", indicator, "RIGHT", 6, 0)
+    title:SetWidth(LIST_WIDTH - 60)
+    title:SetJustifyH("LEFT")
+    title:SetText(group.specName)
+
+    local count = header:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    count:SetPoint("RIGHT", -8, 0)
+    count:SetWidth(34)
+    count:SetJustifyH("RIGHT")
+    count:SetText(tostring(#group.profiles))
+
+    header:SetScript("OnClick", function()
+        MelocoLoadouts:ToggleSpecGroupCollapsed(group.specKey)
+        MelocoLoadouts:RefreshProfileList()
+    end)
+
+    return header
+end
+
 -- Creates a single row for a saved profile.
-function MelocoLoadouts:CreateProfileRow(parent, profileName, profile, index)
+function MelocoLoadouts:CreateProfileRow(parent, profileName, profile, yOffset)
     local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     row:SetSize(LIST_WIDTH, ROW_HEIGHT)
-    row:SetPoint("TOP", 0, -((index - 1) * ROW_SPACING))
+    row:SetPoint("TOP", 0, -yOffset)
 
     row:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -181,17 +227,33 @@ function MelocoLoadouts:RefreshProfileList()
         )
     end
 
-    local profileStore = self:GetCurrentCharacterProfileStore()
-    local profileNames = self:GetCurrentCharacterProfileNames()
+    local profileGroups = self:GetCurrentCharacterProfileGroups()
+    local hasProfiles = false
+    local yOffset = 0
 
-    for index, profileName in ipairs(profileNames) do
-        self:CreateProfileRow(list, profileName, profileStore[profileName], index)
+    for _, group in ipairs(profileGroups) do
+        hasProfiles = hasProfiles or #group.profiles > 0
+
+        self:CreateSpecGroupHeader(list, group, yOffset)
+        yOffset = yOffset + GROUP_HEADER_HEIGHT
+
+        if not self:IsSpecGroupCollapsed(group.specKey) then
+            for _, profileEntry in ipairs(group.profiles) do
+                self:CreateProfileRow(list, profileEntry.name, profileEntry.profile, yOffset)
+                yOffset = yOffset + ROW_SPACING
+            end
+        end
+
+        yOffset = yOffset + GROUP_SPACING
     end
 
-    if #profileNames == 0 then
+    list:SetHeight(math.max(LIST_HEIGHT, yOffset))
+
+    if not hasProfiles then
         local emptyText = list:CreateFontString(nil, "OVERLAY", "GameFontDisable")
         emptyText:SetPoint("TOP", 0, -18)
         emptyText:SetText("No profiles saved for this character.")
+        list:SetHeight(LIST_HEIGHT)
     end
 end
 
@@ -253,9 +315,14 @@ function MelocoLoadouts:CreateMainFrame()
     listTitle:SetText("Saved Profiles")
     frame.profileListTitle = listTitle
 
-    local list = CreateFrame("Frame", nil, frame)
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetSize(LIST_WIDTH + 24, LIST_HEIGHT)
+    scrollFrame:SetPoint("TOP", 0, -130)
+    frame.profileScrollFrame = scrollFrame
+
+    local list = CreateFrame("Frame", nil, scrollFrame)
     list:SetSize(LIST_WIDTH, LIST_HEIGHT)
-    list:SetPoint("TOP", 0, -130)
+    scrollFrame:SetScrollChild(list)
     frame.profileList = list
 
     frame:Hide()
