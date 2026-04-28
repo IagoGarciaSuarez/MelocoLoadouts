@@ -102,6 +102,15 @@ function addon:ApplyProfile(profileName)
 
     self.pendingProfile = nil
 
+    if profile.uiLayoutID then
+        local uiApplied = self:ApplyUILayout(profile.uiLayoutID)
+
+        if uiApplied == false then
+            print("|cffff4444" .. ADDON_DISPLAY_NAME .. ": Profile cancelled. UI layout could not be applied.|r")
+            return
+        end
+    end
+
     local currentSpecIndex = GetSpecialization()
 
     if profile.specIndex and profile.specIndex ~= currentSpecIndex then
@@ -120,7 +129,7 @@ function addon:ApplyProfile(profileName)
     self:ApplyProfileAfterSpec(profile)
 end
 
--- Applies the profile parts that are safe after the target specialization is active.
+-- Applies talent and equipment choices after the target specialization is active.
 function addon:ApplyProfileAfterSpec(profile)
     if not profile then
         return
@@ -139,15 +148,6 @@ function addon:ApplyProfileAfterSpec(profile)
         end
     end
 
-    if profile.uiLayoutID then
-        local uiApplied = self:ApplyUILayout(profile.uiLayoutID)
-
-        if uiApplied == false then
-            print("|cffff4444" .. ADDON_DISPLAY_NAME .. ": Profile cancelled. UI layout could not be applied.|r")
-            return
-        end
-    end
-
     if profile.equipmentSetID then
         local equipmentApplied = self:ApplyEquipmentSet(profile.equipmentSetID)
 
@@ -156,7 +156,19 @@ function addon:ApplyProfileAfterSpec(profile)
         end
     end
 
+    if profile.uiLayoutID then
+        local uiApplied = self:ApplyUILayout(profile.uiLayoutID)
+
+        if uiApplied == false then
+            print("|cffffaa00" .. ADDON_DISPLAY_NAME .. ": Final UI layout retry could not be applied.|r")
+        end
+    end
+
     print("|cff00ff00" .. ADDON_DISPLAY_NAME .. ": Profile applied:|r " .. profile.name)
+
+    if MelocoLoadoutsMainFrame and MelocoLoadoutsMainFrame:IsShown() then
+        self:RefreshProfileList()
+    end
 end
 
 -- Waits briefly for specialization-specific talent loadouts to become available.

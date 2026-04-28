@@ -81,6 +81,17 @@ function MelocoLoadouts:IsTalentLoadoutIDAvailable(loadoutID, specID)
     return false
 end
 
+-- Updates WoW's remembered selected loadout for the current specialization.
+function MelocoLoadouts:SetSelectedTalentLoadout(specID, configID)
+    if not specID or not configID then
+        return
+    end
+
+    if C_ClassTalents and C_ClassTalents.UpdateLastSelectedSavedConfigID then
+        C_ClassTalents.UpdateLastSelectedSavedConfigID(specID, configID)
+    end
+end
+
 -- Loads a talent profile, preferring the saved name and falling back to ID.
 function MelocoLoadouts:ApplyTalentLoadout(loadoutID, loadoutName)
     if not C_ClassTalents or not C_ClassTalents.LoadConfig then
@@ -110,6 +121,8 @@ function MelocoLoadouts:ApplyTalentLoadout(loadoutID, loadoutName)
         print("|cffff4444MelocoLoadouts: LoadConfig returned Error.|r")
         return false
     end
+
+    self:SetSelectedTalentLoadout(currentSpecID, configID)
 
     if Enum and Enum.LoadConfigResult and result == Enum.LoadConfigResult.LoadInProgress then
         print("|cffffaa00MelocoLoadouts: Talent loadout change in progress...|r")

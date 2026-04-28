@@ -6,20 +6,11 @@ function MelocoLoadouts:GetCurrentUILayout()
         return nil, nil
     end
 
-    if C_EditMode.GetActiveLayout then
-        local layoutID, layoutName = C_EditMode.GetActiveLayout()
-        return layoutID, layoutName
-    end
-
     if C_EditMode.GetLayouts then
-        local activeLayout = C_EditMode.GetLayouts()
+        local layoutInfo = C_EditMode.GetLayouts()
 
-        if type(activeLayout) == "number" then
-            return activeLayout, nil
-        end
-
-        if type(activeLayout) == "table" then
-            return activeLayout.layoutID or activeLayout.layoutIndex, activeLayout.layoutName or activeLayout.name
+        if type(layoutInfo) == "table" and layoutInfo.activeLayout then
+            return layoutInfo.activeLayout, nil
         end
     end
 
@@ -34,6 +25,7 @@ function MelocoLoadouts:ApplyUILayout(layoutID)
 
     if C_EditMode and C_EditMode.SetActiveLayout then
         C_EditMode.SetActiveLayout(layoutID)
+        print("|cff00ff00MelocoLoadouts: UI layout selected:|r " .. tostring(layoutID))
         return true
     end
 

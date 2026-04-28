@@ -131,6 +131,7 @@ function MelocoLoadouts:GetCurrentProfileSnapshot()
         talentLoadoutID = talentLoadoutID,
         talentLoadoutName = talentLoadoutName,
         uiLayoutID = uiLayoutID,
+        uiLayoutName = nil,
     }
 end
 

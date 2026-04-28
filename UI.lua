@@ -135,8 +135,9 @@ function MelocoLoadouts:CreateProfileRow(parent, profileName, profile, index)
     local specText = profile.specName or "Unknown spec"
     local gearText = profile.equipmentSetName or "No gear set"
     local talentText = profile.talentLoadoutName or "No talent loadout"
+    local uiText = profile.uiLayoutID and ("UI " .. tostring(profile.uiLayoutID)) or "No UI layout"
 
-    subtitle:SetText(specText .. " - " .. gearText .. " - " .. talentText)
+    subtitle:SetText(specText .. " - " .. gearText .. " - " .. talentText .. " - " .. uiText)
 
     local applyButton = CreateFrame("Button", nil, row, "GameMenuButtonTemplate")
     applyButton:SetSize(62, 24)
